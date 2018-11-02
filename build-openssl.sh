@@ -45,7 +45,7 @@ function build() {
 
     ./configure -shared -no-engine -no-async -no-hw ${HOST} > "${LOG}" 2>&1
 
-    make -j $(sysctl -n hw.logicalcpu_max) > "${LOG}" 2>&1
+    make -j $(sysctl -n hw.logicalcpu_max) >> "${LOG}" 2>&1
 
     cd ../
 }
@@ -61,6 +61,8 @@ build i386   iossimulator-xcrun    $(xcrun --sdk iphonesimulator --show-sdk-path
 build x86_64   iossimulator-xcrun  $(xcrun --sdk iphonesimulator --show-sdk-path)
 
 cd ../
+
+rm ${ARCHIVE}
 
 lipo ${BUILDDIR}/openssl_armv7s/libssl.a \
    -arch arm64 ${BUILDDIR}/openssl_arm64/libssl.a \
@@ -97,6 +99,7 @@ rm -rf ${OUTDIR}
 
 cp "Info.plist" ${FWNAME}.framework/Info.plist
 
+set +e
 check_bitcode=$(otool -arch arm64 -l ${FWNAME}.framework/${FWNAME} | grep __bitcode)
 if [ -z "${check_bitcode}" ]
 then
