@@ -43,7 +43,7 @@ function build() {
 
     export LDFLAGS="-arch ${ARCH} -isysroot ${SDKDIR}"
 
-    ./configure -shared -no-engine -no-async -no-hw ${HOST} > "${LOG}" 2>&1
+    ./configure -shared -no-asm -no-engine -no-async -no-hw ${HOST} > "${LOG}" 2>&1
 
     make -j $(sysctl -n hw.logicalcpu_max) >> "${LOG}" 2>&1
 
@@ -57,7 +57,6 @@ cd ${BUILDDIR}
 
 build armv7s   ios-xcrun           $(xcrun --sdk iphoneos --show-sdk-path)
 build arm64    ios64-xcrun         $(xcrun --sdk iphoneos --show-sdk-path)
-build i386   iossimulator-xcrun    $(xcrun --sdk iphonesimulator --show-sdk-path)
 build x86_64   iossimulator-xcrun  $(xcrun --sdk iphonesimulator --show-sdk-path)
 
 cd ../
@@ -66,13 +65,11 @@ rm ${ARCHIVE}
 
 lipo ${BUILDDIR}/openssl_armv7s/libssl.a \
    -arch arm64 ${BUILDDIR}/openssl_arm64/libssl.a \
-   -arch i386 ${BUILDDIR}/openssl_i386/libssl.a \
    -arch x86_64 ${BUILDDIR}/openssl_x86_64/libssl.a \
    -create -output ${OUTDIR}/libssl.a
 
 lipo ${BUILDDIR}/openssl_armv7s/libcrypto.a \
    -arch arm64 ${BUILDDIR}/openssl_arm64/libcrypto.a \
-   -arch i386 ${BUILDDIR}/openssl_i386/libcrypto.a \
    -arch x86_64 ${BUILDDIR}/openssl_x86_64/libcrypto.a \
    -create -output ${OUTDIR}/libcrypto.a
 
