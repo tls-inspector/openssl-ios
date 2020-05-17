@@ -1,0 +1,2 @@
+Any .patch file placed here will be applied to the OpenSSL source
+before compiling. Patches are applied in an alphabetical order.

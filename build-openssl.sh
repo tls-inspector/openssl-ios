@@ -12,9 +12,9 @@ fi
 
 VERSION=${1}
 ARCHIVE=openssl-${VERSION}.tar.gz
-echo "Downloading openssl ${VERSION}"
 
 if [ ! -f ${ARCHIVE} ]; then
+    echo "Downloading openssl ${VERSION}"
     curl "https://www.openssl.org/source/openssl-${VERSION}.tar.gz" > "${ARCHIVE}"
 fi
 
@@ -38,6 +38,10 @@ function build() {
     mkdir "${WORKDIR}"
     tar -xzf "../${ARCHIVE}" -C "${WORKDIR}" --strip-components 1
     cd "${WORKDIR}"
+
+    for FILE in $(find ../../patches -name '*.patch'); do
+        patch -p1 < ${FILE}
+    done
 
     export CFLAGS="-arch ${ARCH} -pipe -Os -gdwarf-2 -isysroot ${SDKDIR} -miphoneos-version-min=${IPHONEOS_DEPLOYMENT_TARGET}"
 
