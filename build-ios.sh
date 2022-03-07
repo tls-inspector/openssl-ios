@@ -24,7 +24,7 @@ fi
 
 export OUTDIR=output
 export BUILDDIR=build
-export IPHONEOS_DEPLOYMENT_TARGET="9.3"
+export MINIMUM_IOS_VERSION="9.3"
 export CC=$(xcrun -find -sdk iphoneos clang)
 
 function build() {
@@ -43,11 +43,11 @@ function build() {
         patch -p1 < ${FILE}
     done
 
-    export CFLAGS="-arch ${ARCH} -pipe -Os -gdwarf-2 -isysroot ${SDKDIR} -miphoneos-version-min=${IPHONEOS_DEPLOYMENT_TARGET}"
-
+    export CFLAGS="-arch ${ARCH} -pipe -Os -gdwarf-2 -isysroot ${SDKDIR} -mios-version-min=${MINIMUM_IOS_VERSION} -miphoneos-version-min=${MINIMUM_IOS_VERSION}"
     export LDFLAGS="-arch ${ARCH} -isysroot ${SDKDIR}"
 
-    ./configure -shared -no-asm -no-engine -no-async -no-hw ${HOST} > "${LOG}" 2>&1
+    ./configure -shared -no-ui-console -no-tests -no-stdio -lpthread ${HOST} > "${LOG}" 2>&1
+    perl configdata.pm --dump > ../${ARCH}_configuration.txt
 
     make -j $(sysctl -n hw.logicalcpu_max) >> "${LOG}" 2>&1
 
