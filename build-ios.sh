@@ -24,7 +24,7 @@ fi
 
 export OUTDIR=output
 export BUILDDIR=build
-export MINIMUM_IOS_VERSION="9.3"
+export MINIMUM_IOS_VERSION="12.0"
 export CC=$(xcrun -find -sdk iphoneos clang)
 
 function build() {
@@ -59,7 +59,6 @@ mkdir ${OUTDIR}
 mkdir ${BUILDDIR}
 cd ${BUILDDIR}
 
-build armv7s   ios-xcrun           $(xcrun --sdk iphoneos --show-sdk-path)
 build arm64    ios64-xcrun         $(xcrun --sdk iphoneos --show-sdk-path)
 build x86_64   iossimulator-xcrun  $(xcrun --sdk iphonesimulator --show-sdk-path)
 
@@ -67,13 +66,13 @@ cd ../
 
 rm ${ARCHIVE}
 
-lipo ${BUILDDIR}/openssl_armv7s/libssl.a \
-   -arch arm64 ${BUILDDIR}/openssl_arm64/libssl.a \
+lipo \
+   -arch arm64  ${BUILDDIR}/openssl_arm64/libssl.a \
    -arch x86_64 ${BUILDDIR}/openssl_x86_64/libssl.a \
    -create -output ${OUTDIR}/libssl.a
 
-lipo ${BUILDDIR}/openssl_armv7s/libcrypto.a \
-   -arch arm64 ${BUILDDIR}/openssl_arm64/libcrypto.a \
+lipo \
+   -arch arm64  ${BUILDDIR}/openssl_arm64/libcrypto.a \
    -arch x86_64 ${BUILDDIR}/openssl_x86_64/libcrypto.a \
    -create -output ${OUTDIR}/libcrypto.a
 
@@ -99,12 +98,3 @@ rm -rf ${BUILDDIR}
 rm -rf ${OUTDIR}
 
 cp "Info.plist" ${FWNAME}.framework/Info.plist
-
-set +e
-check_bitcode=$(otool -arch arm64 -l ${FWNAME}.framework/${FWNAME} | grep __bitcode)
-if [ -z "${check_bitcode}" ]
-then
-    echo "INFO: ${FWNAME}.framework doesn't contain Bitcode"
-else
-    echo "INFO: ${FWNAME}.framework contains Bitcode"
-fi
