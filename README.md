@@ -1,8 +1,8 @@
 # openssl-ios
 
-A simple script to compile openssl to a dylib framework for iOS apps.
+A modern and *maintained* script to compile OpenSSL for iOS and iPadOS applications.
 
-# Instructions
+## Usage
 
 It's as simple as:
 
@@ -10,7 +10,10 @@ It's as simple as:
 ./build-ios.sh <openssl version>
 ```
 
-Then add the resulting `openssl.framework` package to your app and you're finished.
+Then add the resulting `openssl.xcframework` package to your app and you're finished.
+
+Only maintained versions of OpenSSL are supported. Legacy versions are unsupported, even if you have a support contract with OpenSSL.
+Some features of libssl and libcrypto have been disabled by this script.
 
 # License
 

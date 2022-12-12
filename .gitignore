@@ -1,5 +1,4 @@
 .DS_Store
-output/
 build/
-openssl*.gz
-openssl.framework/
+*.xcframework/
+*.tar.gz

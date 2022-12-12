@@ -22,19 +22,17 @@ fi
 # COMPILE #
 ###########
 
-export OUTDIR=output
-export BUILDDIR=build
-export MINIMUM_IOS_VERSION="12.0"
-export CC=$(xcrun -find -sdk iphoneos clang)
+BUILDDIR=build
 
 function build() {
     ARCH=${1}
     HOST=${2}
-    SDKDIR=${3}
-    LOG="../${ARCH}_build.log"
-    echo "Building openssl for ${ARCH}..."
+    SDK=${3}
+    SDKDIR=$(xcrun --sdk ${SDK} --show-sdk-path)
+    LOG="../${ARCH}-${SDK}_build.log"
+    echo "Building openssl for ${ARCH}-${SDK}..."
 
-    WORKDIR=openssl_${ARCH}
+    WORKDIR=openssl_${ARCH}-${SDK}
     mkdir "${WORKDIR}"
     tar -xzf "../${ARCHIVE}" -C "${WORKDIR}" --strip-components 1
     cd "${WORKDIR}"
@@ -43,58 +41,77 @@ function build() {
         patch -p1 < ${FILE}
     done
 
-    export CFLAGS="-arch ${ARCH} -pipe -Os -gdwarf-2 -isysroot ${SDKDIR} -mios-version-min=${MINIMUM_IOS_VERSION} -miphoneos-version-min=${MINIMUM_IOS_VERSION}"
+    export CC=$(xcrun -find -sdk ${SDK} clang)
+    export CFLAGS="-arch ${ARCH} -pipe -Os -gdwarf-2 -isysroot ${SDKDIR} -m${SDK}-version-min=12.0"
     export LDFLAGS="-arch ${ARCH} -isysroot ${SDKDIR}"
 
-    ./configure -shared -no-ui-console -no-tests -no-stdio -lpthread ${HOST} > "${LOG}" 2>&1
-    perl configdata.pm --dump > ../${ARCH}_configuration.txt
+    ./configure \
+        -shared \
+        -no-ui-console \
+        -no-tests \
+        -no-stdio \
+        -no-threads \
+        -no-legacy \
+        --prefix=$(pwd)/artifacts \
+        ${HOST} > "${LOG}" 2>&1
+    perl configdata.pm --dump > ../${ARCH}-${SDK}_configuration.txt
 
     make -j $(sysctl -n hw.logicalcpu_max) >> "${LOG}" 2>&1
+    make install >> "${LOG}" 2>&1
 
     cd ../
 }
 
-rm -rf ${OUTDIR} ${BUILDDIR}
-mkdir ${OUTDIR}
+rm -rf ${BUILDDIR}
 mkdir ${BUILDDIR}
 cd ${BUILDDIR}
 
-build arm64    ios64-xcrun         $(xcrun --sdk iphoneos --show-sdk-path)
-build x86_64   iossimulator-xcrun  $(xcrun --sdk iphonesimulator --show-sdk-path)
+build arm64    ios64-xcrun         iphoneos
+build arm64    iossimulator-xcrun  iphonesimulator
+build x86_64   iossimulator-xcrun  iphonesimulator
 
 cd ../
-
-rm ${ARCHIVE}
-
-lipo \
-   -arch arm64  ${BUILDDIR}/openssl_arm64/libssl.a \
-   -arch x86_64 ${BUILDDIR}/openssl_x86_64/libssl.a \
-   -create -output ${OUTDIR}/libssl.a
-
-lipo \
-   -arch arm64  ${BUILDDIR}/openssl_arm64/libcrypto.a \
-   -arch x86_64 ${BUILDDIR}/openssl_x86_64/libcrypto.a \
-   -create -output ${OUTDIR}/libcrypto.a
 
 ###########
 # PACKAGE #
 ###########
 
-FWNAME=openssl
+# Merge the arm64 and x86_64 binaries for the simulator together
+lipo \
+   -arch arm64  ${BUILDDIR}/openssl_arm64-iphonesimulator/artifacts/lib/libssl.a \
+   -arch x86_64 ${BUILDDIR}/openssl_x86_64-iphonesimulator/artifacts/lib/libssl.a \
+   -create -output ${BUILDDIR}/libssl.a
+lipo \
+   -arch arm64  ${BUILDDIR}/openssl_arm64-iphonesimulator/artifacts/lib/libcrypto.a \
+   -arch x86_64 ${BUILDDIR}/openssl_x86_64-iphonesimulator/artifacts/lib/libcrypto.a \
+   -create -output ${BUILDDIR}/libcrypto.a
 
-if [ -d ${FWNAME}.framework ]; then
-    echo "Removing previous ${FWNAME}.framework copy"
-    rm -rf ${FWNAME}.framework
-fi
+rm -rf libssl.xcframework
+xcodebuild -create-xcframework \
+    -library ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/lib/libssl.a     -headers ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/include/openssl \
+    -library ${BUILDDIR}/libssl.a                                          -headers ${BUILDDIR}/openssl_arm64-iphonesimulator/artifacts/include/openssl \
+    -output libssl.xcframework
+plutil -insert CFBundleVersion -string ${VERSION} libssl.xcframework/Info.plist
 
-LIBTOOL_FLAGS="-no_warning_for_no_symbols -static"
+rm -rf libcrypto.xcframework
+xcodebuild -create-xcframework \
+    -library ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/lib/libcrypto.a     -headers ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/include/openssl \
+    -library ${BUILDDIR}/libcrypto.a                                          -headers ${BUILDDIR}/openssl_arm64-iphonesimulator/artifacts/include/openssl \
+    -output libcrypto.xcframework
+plutil -insert CFBundleVersion -string ${VERSION} libcrypto.xcframework/Info.plist
 
-echo "Creating ${FWNAME}.framework"
-mkdir -p ${FWNAME}.framework/Headers/
-libtool ${LIBTOOL_FLAGS} -o ${FWNAME}.framework/${FWNAME} ${OUTDIR}/libssl.a ${OUTDIR}/libcrypto.a
-cp -r ${BUILDDIR}/openssl_arm64/include/${FWNAME}/*.h ${FWNAME}.framework/Headers/
+# Create a traditional .framework that combines libssl and libcrypto for each platform
+rm -rf ${BUILDDIR}/iphoneos/openssl.framework ${BUILDDIR}/iphonesimulator/openssl.framework
+mkdir -p ${BUILDDIR}/iphoneos/openssl.framework/Headers ${BUILDDIR}/iphonesimulator/openssl.framework/Headers
 
-rm -rf ${BUILDDIR}
-rm -rf ${OUTDIR}
+libtool -no_warning_for_no_symbols -static -o ${BUILDDIR}/iphoneos/openssl.framework/openssl ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/lib/libssl.a ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/lib/libcrypto.a
+cp -r ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/include/openssl/*.h ${BUILDDIR}/iphoneos/openssl.framework/Headers
+libtool -no_warning_for_no_symbols -static -o ${BUILDDIR}/iphonesimulator/openssl.framework/openssl ${BUILDDIR}/libssl.a ${BUILDDIR}/libcrypto.a
+cp -r ${BUILDDIR}/openssl_arm64-iphonesimulator/artifacts/include/openssl/*.h ${BUILDDIR}/iphonesimulator/openssl.framework/Headers
 
-cp "Info.plist" ${FWNAME}.framework/Info.plist
+rm -rf openssl.xcframework
+xcodebuild -create-xcframework \
+    -framework ${BUILDDIR}/iphoneos/openssl.framework \
+    -framework ${BUILDDIR}/iphonesimulator/openssl.framework \
+    -output openssl.xcframework
+plutil -insert CFBundleVersion -string ${VERSION} openssl.xcframework/Info.plist
