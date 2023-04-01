@@ -27,7 +27,7 @@ Use the included build script to compile a specific version or customize the con
 ./build-ios.sh <openssl version> [optional configure parameters]
 ```
 
-The following config parameters are always provided: `-no-shared`, `-no-ui-console`, `-no-tests`, `-no-stdio`, `-no-threads`, `-no-legacy`, `-no-ssl2`, `-no-ssl3`, `-no-hw`, `-no-weak-ssl-ciphers`.
+The following config parameters are always provided: `-no-shared`, `-no-ui-console`, `-no-tests`, `-no-stdio`, `-no-threads`, `-no-legacy`, `-no-ssl2`, `-no-ssl3`, `-no-asm`, `-no-weak-ssl-ciphers`.
 
 ## Export Compliance
 

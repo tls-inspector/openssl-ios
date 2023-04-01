@@ -57,7 +57,7 @@ function build() {
         -no-legacy \
         -no-ssl2 \
         -no-ssl3 \
-        -no-hw \
+        -no-asm \
         -no-weak-ssl-ciphers \
         $BUILD_ARGS \
         --prefix=$(pwd)/artifacts \

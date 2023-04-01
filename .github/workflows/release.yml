@@ -10,6 +10,8 @@ permissions:
   packages: read
   contents: write
 
+concurrency: single_compile
+
 jobs:
   query:
     name: "Check for updates"
