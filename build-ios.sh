@@ -6,11 +6,14 @@ if [ -z "${1}" ]; then
     exit 1
 fi
 
+VERSION=$1
+shift
+BUILD_ARGS="$@"
+
 ############
 # DOWNLOAD #
 ############
 
-VERSION=${1}
 ARCHIVE=openssl-${VERSION}.tar.gz
 
 if [ ! -f ${ARCHIVE} ]; then
@@ -46,12 +49,17 @@ function build() {
     export LDFLAGS="-arch ${ARCH} -isysroot ${SDKDIR}"
 
     ./configure \
-        -shared \
+        -no-shared \
         -no-ui-console \
         -no-tests \
         -no-stdio \
         -no-threads \
         -no-legacy \
+        -no-ssl2 \
+        -no-ssl3 \
+        -no-hw \
+        -no-weak-ssl-ciphers \
+        $BUILD_ARGS \
         --prefix=$(pwd)/artifacts \
         ${HOST} > "${LOG}" 2>&1
     perl configdata.pm --dump > ../${ARCH}-${SDK}_configuration.txt

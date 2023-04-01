@@ -1,0 +1,72 @@
+name: "Build openssl framework"
+
+on:
+  push:
+    branches: ["main"]
+  schedule:
+    - cron: "18 18 * * *"
+
+permissions:
+  packages: read
+  contents: write
+
+jobs:
+  query:
+    name: "Check for updates"
+    runs-on: macos-latest
+    outputs:
+      openssl_version: ${{ steps.query.outputs.openssl_version }}
+      needs_update: ${{ steps.query.outputs.needs_update }}
+    steps:
+      - name: "Get latest release"
+        id: query
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST_OFFICIAL_OPENSSL_RELEASE=$(gh api /repos/openssl/openssl/tags --jq '.[].name' | egrep '^openssl-[0-9\.]+$' | sort -nr | head -n1 | sed 's/openssl-//')
+          LATEST_OPENSSL_IOS_RELEASE=$(gh api /repos/tls-inspector/openssl-ios/releases/latest --jq '.name')
+          echo "::notice ::Latest openssl release: ${LATEST_OFFICIAL_OPENSSL_RELEASE}, last published framework: ${LATEST_OPENSSL_IOS_RELEASE}"
+          echo "openssl_version=${LATEST_OFFICIAL_OPENSSL_RELEASE}" >> $GITHUB_OUTPUT
+          if [[ "${LATEST_OPENSSL_IOS_RELEASE}" != "${LATEST_OFFICIAL_OPENSSL_RELEASE}" ]]; then
+            echo "needs_update=yes" >> $GITHUB_OUTPUT
+          else
+            echo "needs_update=no" >> $GITHUB_OUTPUT
+          fi
+          cat $GITHUB_OUTPUT
+  update:
+    name: "Compile"
+    needs: query
+    if: needs.query.outputs.needs_update == 'yes'
+    runs-on: macos-latest
+    outputs:
+      framework_checksum: ${{ steps.prepare.outputs.framework_checksum }}
+    steps:
+      - name: Checkout Source
+        id: checkout
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # pin@v3.4.0
+      - name: Compile Framework
+        id: compile
+        run: |
+          ./build-ios.sh ${{ needs.query.outputs.openssl_version }}
+          zip -r openssl.xcframework.zip openssl.xcframework/
+      - name: Prepare Release
+        id: prepare
+        run: |
+          SHASUM=$(shasum -a 256 openssl.xcframework.zip | cut -d ' ' -f1)
+          echo "framework_checksum=${SHASUM}" >> $GITHUB_OUTPUT
+          echo "::notice ::openssl.xcframework.zip checksum: ${SHASUM}"
+          echo "-----BEGIN EC PRIVATE KEY-----" >> private_key.pem
+          echo '${{ secrets.SIGNING_KEY }}' >> private_key.pem
+          echo "-----END EC PRIVATE KEY-----" >> private_key.pem
+          openssl dgst -sign private_key.pem -sha256 -out openssl.xcframework.zip.sig openssl.xcframework.zip
+          rm -f private_key.pem
+      - name: Make Release If Needed
+        id: release
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # pin@v1
+        with:
+          name: ${{ needs.query.outputs.openssl_version }}
+          body: "openssl.xcframework.zip SHA-256 `${{ steps.prepare.outputs.framework_checksum }}`"
+          tag_name: ${{ needs.query.outputs.openssl_version }}
+          files: |
+            openssl.xcframework.zip
+            openssl.xcframework.zip.sig

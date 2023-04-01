@@ -1,23 +1,33 @@
 # openssl-ios
 
-A modern and *maintained* script to compile OpenSSL for iOS and iPadOS applications.
+Pre-compiled openssl framework for iOS and iPadOS applications! Automatically updated within 24-hours of a new release of openssl.
 
-## Usage
+## Using the pre-compiled framework
 
-It's as simple as:
+1. Download and extract openssl.xcframework.zip from the latest release
+1. Compare the SHA-256 checksum of the downloaded framework with the fingerprint in the release
+    ```bash
+    shasum -a 256 openssl.xcframework.zip
+    ```
+    1. _Optionally_ download the signing key from this repo and the openssl.xcframework.zip.sig from the release and verify the signature
+        ```bash
+        openssl dgst -sha256 -verify signingkey.pem -signature openssl.xcframework.zip.sig openssl.xcframework.zip
+        ```
+1. Select your target in Xcode and click the "+" under Frameworks, Libraries, and Embedded Content  
+    ![Screenshot of the Frameworks, Libraries, and Embedded Content section in Xcode with the plus button circled](resources/frameworks.png)
+1. Click "Add Other" then "Add Files..."  
+    ![Screenshot of a dropdown menu with the add files option highlighted](resources/addfiles.png)
+1. Select the extracted openssl.xcframework directory
+
+## Compile it yourself
+
+Use the included build script to compile a specific version or customize the configuration options
 
 ```
-./build-ios.sh <openssl version>
+./build-ios.sh <openssl version> [optional configure parameters]
 ```
 
-Then add the resulting `openssl.xcframework` package to your app and you're finished.
-
-Only maintained versions of OpenSSL are supported. Legacy versions are unsupported, even if you have a support contract with OpenSSL.
-Some features of libssl and libcrypto have been disabled by this script.
-
-# License
-
-This build script is licensed under the GPLv3 license. OpenSSL is licensed by the [OpenSSL license](https://www.openssl.org/source/license-openssl-ssleay.txt)
+The following config parameters are always provided: `-no-shared`, `-no-ui-console`, `-no-tests`, `-no-stdio`, `-no-threads`, `-no-legacy`, `-no-ssl2`, `-no-ssl3`, `-no-hw`, `-no-weak-ssl-ciphers`.
 
 ## Export Compliance
 
