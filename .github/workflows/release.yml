@@ -54,6 +54,7 @@ jobs:
           echo 'trusted-key 0xD9C4D26D0E604491' >> ~/.gnupg/gpg.conf
           echo 'trusted-key 0xB8EF1A6BA9DA2D5C' >> ~/.gnupg/gpg.conf
           echo 'trusted-key 0x231C84CDDCC69C45' >> ~/.gnupg/gpg.conf
+          echo 'trusted-key 0xD894E2CE8B3D79F5' >> ~/.gnupg/gpg.conf
           GPG_VERIFY=1 ./build-ios.sh ${{ needs.query.outputs.openssl_version }}
           zip -r openssl.xcframework.zip openssl.xcframework/
       - name: Prepare Release
