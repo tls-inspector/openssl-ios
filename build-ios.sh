@@ -53,22 +53,16 @@ function build() {
     export CC=$(xcrun -find -sdk ${SDK} clang)
     export CFLAGS="-arch ${ARCH} -pipe -Os -gdwarf-2 -isysroot ${SDKDIR} -m${SDK}-version-min=12.0"
     export LDFLAGS="-arch ${ARCH} -isysroot ${SDKDIR}"
+    BUILD_ARGS="-no-shared -no-ui-console -no-tests -no-stdio -no-threads -no-legacy -no-ssl2 -no-ssl3 -no-asm -no-weak-ssl-ciphers ${BUILD_ARGS}"
+
+    echo "build variables: CC=\"${CC}\" CFLAGS=\"${CFLAGS}\" LDFLAGS=\"${LDFLAGS}\"" >> "${LOG}"
+    echo "configure parameters: ${BUILD_ARGS}" >> "${LOG}"
 
     ./configure \
-        -no-shared \
-        -no-ui-console \
-        -no-tests \
-        -no-stdio \
-        -no-threads \
-        -no-legacy \
-        -no-ssl2 \
-        -no-ssl3 \
-        -no-asm \
-        -no-weak-ssl-ciphers \
         $BUILD_ARGS \
         --prefix=$(pwd)/artifacts \
-        ${HOST} > "${LOG}" 2>&1
-    perl configdata.pm --dump > ../${ARCH}-${SDK}_configuration.txt
+        ${HOST} >> "${LOG}" 2>&1
+    perl configdata.pm --dump >> ../${ARCH}-${SDK}_configuration.log
 
     make -j $(sysctl -n hw.logicalcpu_max) >> "${LOG}" 2>&1
     make install >> "${LOG}" 2>&1
