@@ -17,13 +17,13 @@ BUILD_ARGS="$@"
 ARCHIVE=openssl-${VERSION}.tar.gz
 if [ ! -f ${ARCHIVE} ]; then
     echo "Downloading openssl ${VERSION}"
-    curl "https://www.openssl.org/source/openssl-${VERSION}.tar.gz" > "${ARCHIVE}"
+    curl -L "https://www.openssl.org/source/openssl-${VERSION}.tar.gz" > "${ARCHIVE}"
 fi
 
 if [ ! -z "${GPG_VERIFY}" ]; then
     echo "Verifying signature for openssl-${VERSION}.tar.gz"
     rm -f "${ARCHIVE}.asc"
-    curl "https://www.openssl.org/source/openssl-${VERSION}.tar.gz.asc" > "${ARCHIVE}.asc"
+    curl -L "https://www.openssl.org/source/openssl-${VERSION}.tar.gz.asc" > "${ARCHIVE}.asc"
     gpg --verify "${ARCHIVE}.asc" "${ARCHIVE}" >/dev/null
 fi
 

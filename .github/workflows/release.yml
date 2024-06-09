@@ -46,7 +46,7 @@ jobs:
     steps:
       - name: Checkout Source
         id: checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # pin@v4.1.1
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 #pin v4.1.6
       - name: Compile Framework
         id: compile
         run: |
@@ -56,10 +56,11 @@ jobs:
           echo 'trusted-key 0xB8EF1A6BA9DA2D5C' >> ~/.gnupg/gpg.conf
           echo 'trusted-key 0x231C84CDDCC69C45' >> ~/.gnupg/gpg.conf
           echo 'trusted-key 0xD894E2CE8B3D79F5' >> ~/.gnupg/gpg.conf
+          echo 'trusted-key 0x216094DFD0CB81EF' >> ~/.gnupg/gpg.conf
           GPG_VERIFY=1 ./build-ios.sh ${{ needs.query.outputs.openssl_version }}
           zip -r openssl.xcframework.zip openssl.xcframework/
       - name: Capture Build Errors
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # pin@v4.3.0
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 #pin v4.3.3
         if: failure()
         with:
           name: build_output
@@ -75,13 +76,9 @@ jobs:
           echo "-----END EC PRIVATE KEY-----" >> private_key.pem
           openssl dgst -sign private_key.pem -sha256 -out openssl.xcframework.zip.sig openssl.xcframework.zip
           rm -f private_key.pem
-      - name: Make Release If Needed
+      - name: Make Release
         id: release
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # pin@v1
-        with:
-          name: ${{ needs.query.outputs.openssl_version }}
-          body: "openssl.xcframework.zip SHA-256 `${{ steps.prepare.outputs.framework_checksum }}`"
-          tag_name: ${{ needs.query.outputs.openssl_version }}
-          files: |
-            openssl.xcframework.zip
-            openssl.xcframework.zip.sig
+        run: |
+          gh release create -n 'openssl.xcframework.zip SHA-256 `${{ steps.prepare.outputs.framework_checksum }}`' -t "${{ needs.query.outputs.openssl_version }}" ${{ needs.query.outputs.openssl_version }} openssl.xcframework.zip openssl.xcframework.zip.sig
+        env:
+          GH_TOKEN: ${{ github.token }}
