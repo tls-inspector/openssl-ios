@@ -52,7 +52,6 @@ jobs:
         run: |
           echo "Importing public keys"
           gpg --import ./openssl.asc
-          echo 'trusted-key 0xD894E2CE8B3D79F5' >> ~/.gnupg/gpg.conf
           echo 'trusted-key 0x216094DFD0CB81EF' >> ~/.gnupg/gpg.conf
           echo "Starting build"
           GPG_VERIFY=1 ./build-ios.sh ${{ needs.query.outputs.openssl_version }}
