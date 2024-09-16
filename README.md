@@ -27,6 +27,10 @@ Use the included build script to compile a specific version or customize the con
 ./build-ios.sh <openssl version> [optional configure parameters]
 ```
 
+To enable signature verification of downloaded artifacts set the `GPG_VERIFY` environment variable to `1`.
+
+If you are building for use with a Swift package, you need to set the `WITH_MODULE_MAP` environment variable to `1`.
+
 The following config parameters are always provided: `-no-shared`, `-no-ui-console`, `-no-tests`, `-no-stdio`, `-no-threads`, `-no-legacy`, `-no-ssl2`, `-no-ssl3`, `-no-asm`, `-no-weak-ssl-ciphers`.
 
 ## Export Compliance

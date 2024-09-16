@@ -18,14 +18,14 @@ ARCHIVE=openssl-${VERSION}.tar.gz
 if [ ! -f ${ARCHIVE} ]; then
     echo "Downloading openssl ${VERSION}..."
     curl -L "https://github.com/openssl/openssl/releases/download/openssl-${VERSION}/openssl-${VERSION}.tar.gz" > "${ARCHIVE}"
-fi
 
-if [ ! -z "${GPG_VERIFY}" ]; then
-    echo "Verifying signature for openssl-${VERSION}.tar.gz..."
-    rm -f "${ARCHIVE}.asc"
-    curl -L "https://github.com/openssl/openssl/releases/download/openssl-${VERSION}/openssl-${VERSION}.tar.gz.asc" > "${ARCHIVE}.asc"
-    gpg --verify "${ARCHIVE}.asc" "${ARCHIVE}"
-    echo "Verified signature for openssl-${VERSION}.tar.gz successfully!"
+    if [ ! -z "${GPG_VERIFY}" ]; then
+        echo "Verifying signature for openssl-${VERSION}.tar.gz..."
+        rm -f "${ARCHIVE}.asc"
+        curl -L "https://github.com/openssl/openssl/releases/download/openssl-${VERSION}/openssl-${VERSION}.tar.gz.asc" > "${ARCHIVE}.asc"
+        gpg --verify "${ARCHIVE}.asc" "${ARCHIVE}"
+        echo "Verified signature for ${ARCHIVE} successfully!"
+    fi
 fi
 
 ###########
@@ -67,6 +67,9 @@ function build() {
 
     make -j $(sysctl -n hw.logicalcpu_max) >> "${LOG}" 2>&1
     make install >> "${LOG}" 2>&1
+
+    # Deprecated file (openssl should just remove it)
+    rm artifacts/include/openssl/asn1_mac.h
 
     cd ../
 }
@@ -117,6 +120,23 @@ libtool -no_warning_for_no_symbols -static -o ${BUILDDIR}/iphoneos/openssl.frame
 cp -r ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/include/openssl/*.h ${BUILDDIR}/iphoneos/openssl.framework/Headers
 libtool -no_warning_for_no_symbols -static -o ${BUILDDIR}/iphonesimulator/openssl.framework/openssl ${BUILDDIR}/libssl.a ${BUILDDIR}/libcrypto.a
 cp -r ${BUILDDIR}/openssl_arm64-iphonesimulator/artifacts/include/openssl/*.h ${BUILDDIR}/iphonesimulator/openssl.framework/Headers
+
+# Inject a module map so Swift can consume this
+function make_modulemap {
+    PLATFORM=${1}
+    mkdir -p ${BUILDDIR}/${PLATFORM}/openssl.framework/Modules
+    echo "framework module OpenSSL {" > ${BUILDDIR}/${PLATFORM}/openssl.framework/Modules/module.modulemap
+    for HEADER in $(ls ${BUILDDIR}/${PLATFORM}/openssl.framework/Headers); do
+        echo "    header \"${HEADER}\"" >> ${BUILDDIR}/${PLATFORM}/openssl.framework/Modules/module.modulemap
+    done
+    echo "    export *" >> ${BUILDDIR}/${PLATFORM}/openssl.framework/Modules/module.modulemap
+    echo "}" >> ${BUILDDIR}/${PLATFORM}/openssl.framework/Modules/module.modulemap
+}
+
+if [ ! -z "${WITH_MODULE_MAP}" ]; then
+    make_modulemap iphoneos
+    make_modulemap iphonesimulator
+fi
 
 rm -rf openssl.xcframework
 xcodebuild -create-xcframework \
