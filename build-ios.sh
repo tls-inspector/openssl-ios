@@ -1,31 +1,73 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
-if [ -z "${1}" ]; then
-    echo "Usage: ${0} <OpenSSL Version>"
+################
+# PROCESS ARGS #
+################
+
+VERIFY=0
+OPENSSL_VERSION=0
+SWIFT=0
+USE_GH_CLI=0
+
+while getopts :o:vsg OPTION; do
+    case $OPTION in
+        o) OPENSSL_VERSION=$OPTARG;;
+        v) VERIFY=1;;
+        s) SWIFT=1;;
+        g) USE_GH_CLI=1;;
+        ?) echo "Error: Invalid option was specified -$OPTARG";exit 1;;
+    esac
+done
+if [ "$OPTIND" -ge 2 ]; then
+    shift "$((OPTIND - 2))"
+    shift 1
+else
+    shift "$((OPTIND - 1))"
+fi
+
+if ! command -v jq 2>&1 >/dev/null; then
+    echo "The 'jq' utility must be installed, otherwise you must specify the openssl version to use."
     exit 1
 fi
 
-VERSION=$1
-shift
-BUILD_ARGS="$@"
+BUILD_ARGS="$*"
+USERAGENT="github.com/tls-inspector/openssl-ios"
 
-############
-# DOWNLOAD #
-############
+function github_api() {
+    API_PATH=$1
 
-ARCHIVE=openssl-${VERSION}.tar.gz
-if [ ! -f ${ARCHIVE} ]; then
-    echo "Downloading openssl ${VERSION}..."
-    curl -L "https://github.com/openssl/openssl/releases/download/openssl-${VERSION}/openssl-${VERSION}.tar.gz" > "${ARCHIVE}"
-
-    if [ ! -z "${GPG_VERIFY}" ]; then
-        echo "Verifying signature for openssl-${VERSION}.tar.gz..."
-        rm -f "${ARCHIVE}.asc"
-        curl -L "https://github.com/openssl/openssl/releases/download/openssl-${VERSION}/openssl-${VERSION}.tar.gz.asc" > "${ARCHIVE}.asc"
-        gpg --verify "${ARCHIVE}.asc" "${ARCHIVE}"
-        echo "Verified signature for ${ARCHIVE} successfully!"
+    if [[ $USE_GH_CLI == 1 ]]; then
+        gh api $API_PATH
+    else
+        curl -Ss -A "${USERAGENT}" "https://api.github.com/$API_PATH"
     fi
+}
+
+if [[ $OPENSSL_VERSION == 0 ]]; then
+    OPENSSL_VERSION=$(github_api repos/tls-inspector/openssl-ios/releases/latest | jq -r .name)
+fi
+echo "Using OpenSSL ${OPENSSL_VERSION}"
+
+###############################
+# DOWNLOAD & VERIFY ARTIFACTS #
+###############################
+
+# Download openssl
+ARCHIVE=openssl-${OPENSSL_VERSION}.tar.gz
+if [ ! -f "${ARCHIVE}" ]; then
+    echo "Downloading openssl ${OPENSSL_VERSION}..."
+    curl -A "${USERAGENT}" -L "https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz" > "${ARCHIVE}"
+fi
+
+# Verify openssl
+if [[ $VERIFY == 1 ]]; then
+    echo "Verifying signature for ${ARCHIVE}"
+    if [ ! -f "${ARCHIVE}.asc" ]; then
+        curl -A "${USERAGENT}" "https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz.asc" > "${ARCHIVE}.asc"
+    fi
+    gpg --verify "${ARCHIVE}.asc" "${ARCHIVE}" >/dev/null
+    echo "Verified signature for ${ARCHIVE} successfully!"
 fi
 
 ###########
@@ -38,9 +80,9 @@ function build() {
     ARCH=${1}
     HOST=${2}
     SDK=${3}
+    echo "Building openssl for ${ARCH}-${SDK}..."
     SDKDIR=$(xcrun --sdk ${SDK} --show-sdk-path)
     LOG="../${ARCH}-${SDK}_build.log"
-    echo "Building openssl for ${ARCH}-${SDK}..."
 
     WORKDIR=openssl_${ARCH}-${SDK}
     mkdir "${WORKDIR}"
@@ -54,13 +96,14 @@ function build() {
     export CC=$(xcrun -find -sdk ${SDK} clang)
     export CFLAGS="-arch ${ARCH} -pipe -Os -gdwarf-2 -isysroot ${SDKDIR} -m${SDK}-version-min=12.0"
     export LDFLAGS="-arch ${ARCH} -isysroot ${SDKDIR}"
-    BUILD_ARGS="-no-shared -no-ui-console -no-tests -no-stdio -no-threads -no-legacy -no-ssl2 -no-ssl3 -no-asm -no-weak-ssl-ciphers ${BUILD_ARGS}"
+
+    CONFIGURE_ARGS="${BUILD_ARGS} -no-shared -no-ui-console -no-tests -no-stdio -no-threads -no-legacy -no-ssl2 -no-ssl3 -no-asm -no-weak-ssl-ciphers"
 
     echo "build variables: CC=\"${CC}\" CFLAGS=\"${CFLAGS}\" LDFLAGS=\"${LDFLAGS}\"" >> "${LOG}"
-    echo "configure parameters: ${BUILD_ARGS}" >> "${LOG}"
+    echo "configure parameters: ${CONFIGURE_ARGS}" >> "${LOG}"
 
     ./configure \
-        $BUILD_ARGS \
+        $CONFIGURE_ARGS \
         --prefix=$(pwd)/artifacts \
         ${HOST} >> "${LOG}" 2>&1
     perl configdata.pm --dump >> ../${ARCH}-${SDK}_configuration.log
@@ -103,14 +146,14 @@ xcodebuild -create-xcframework \
     -library ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/lib/libssl.a     -headers ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/include/openssl \
     -library ${BUILDDIR}/libssl.a                                          -headers ${BUILDDIR}/openssl_arm64-iphonesimulator/artifacts/include/openssl \
     -output libssl.xcframework
-plutil -insert CFBundleVersion -string ${VERSION} libssl.xcframework/Info.plist
+plutil -insert CFBundleVersion -string ${OPENSSL_VERSION} libssl.xcframework/Info.plist
 
 rm -rf libcrypto.xcframework
 xcodebuild -create-xcframework \
     -library ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/lib/libcrypto.a     -headers ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/include/openssl \
     -library ${BUILDDIR}/libcrypto.a                                          -headers ${BUILDDIR}/openssl_arm64-iphonesimulator/artifacts/include/openssl \
     -output libcrypto.xcframework
-plutil -insert CFBundleVersion -string ${VERSION} libcrypto.xcframework/Info.plist
+plutil -insert CFBundleVersion -string ${OPENSSL_VERSION} libcrypto.xcframework/Info.plist
 
 # Create a traditional .framework that combines libssl and libcrypto for each platform
 rm -rf ${BUILDDIR}/iphoneos/openssl.framework ${BUILDDIR}/iphonesimulator/openssl.framework
@@ -121,21 +164,9 @@ cp -r ${BUILDDIR}/openssl_arm64-iphoneos/artifacts/include/openssl/*.h ${BUILDDI
 libtool -no_warning_for_no_symbols -static -o ${BUILDDIR}/iphonesimulator/openssl.framework/openssl ${BUILDDIR}/libssl.a ${BUILDDIR}/libcrypto.a
 cp -r ${BUILDDIR}/openssl_arm64-iphonesimulator/artifacts/include/openssl/*.h ${BUILDDIR}/iphonesimulator/openssl.framework/Headers
 
-# Inject a module map so Swift can consume this
-function make_modulemap {
-    PLATFORM=${1}
-    mkdir -p ${BUILDDIR}/${PLATFORM}/openssl.framework/Modules
-    echo "framework module OpenSSL {" > ${BUILDDIR}/${PLATFORM}/openssl.framework/Modules/module.modulemap
-    for HEADER in $(ls ${BUILDDIR}/${PLATFORM}/openssl.framework/Headers); do
-        echo "    header \"${HEADER}\"" >> ${BUILDDIR}/${PLATFORM}/openssl.framework/Modules/module.modulemap
-    done
-    echo "    export *" >> ${BUILDDIR}/${PLATFORM}/openssl.framework/Modules/module.modulemap
-    echo "}" >> ${BUILDDIR}/${PLATFORM}/openssl.framework/Modules/module.modulemap
-}
-
-if [ ! -z "${WITH_MODULE_MAP}" ]; then
-    make_modulemap iphoneos
-    make_modulemap iphonesimulator
+if [[ $SWIFT == 1 ]]; then
+    ./inject_module_map.sh iphoneos
+    ./inject_module_map.sh iphonesimulator
 fi
 
 rm -rf openssl.xcframework
@@ -143,4 +174,4 @@ xcodebuild -create-xcframework \
     -framework ${BUILDDIR}/iphoneos/openssl.framework \
     -framework ${BUILDDIR}/iphonesimulator/openssl.framework \
     -output openssl.xcframework
-plutil -insert CFBundleVersion -string ${VERSION} openssl.xcframework/Info.plist
+plutil -insert CFBundleVersion -string ${OPENSSL_VERSION} openssl.xcframework/Info.plist
