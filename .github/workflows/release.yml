@@ -46,7 +46,9 @@ jobs:
     steps:
       - name: Checkout Source
         id: checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 #pin v4.1.7
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #pin v4.2.2
+        with:
+          persist-credentials: false
       - name: Compile Framework
         id: compile
         run: |
@@ -54,39 +56,29 @@ jobs:
           gpg --import ./openssl.asc
           echo 'trusted-key 0x216094DFD0CB81EF' >> ~/.gnupg/gpg.conf
           echo "Starting build"
-          GPG_VERIFY=1 ./build-ios.sh ${{ needs.query.outputs.openssl_version }}
+          ./build-ios.sh -o ${{ needs.query.outputs.openssl_version }} -s -g
+          zip -r openssl.xcframework.zip openssl.xcframework/
+          ./inject_module_map.sh iphoneos
+          ./inject_module_map.sh iphonesimulator
+          zip -r openssl_swift.xcframework.zip openssl.xcframework/
       - name: Capture Build Errors
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 #pin v4.4.0
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 #pin v4.6.2
         if: failure()
         with:
           name: build_output
-          path: build/*.log
+          path: build/*_build.log
       - name: Prepare Release
-        id: prepare
+        id: prepare_release
         run: |
-          zip -r openssl.xcframework.zip openssl.xcframework/
-          tar -cf openssl.tar build/openssl_*/artifacts/
-          xz openssl.tar
-          FRAMEWORK_SHASUM=$(shasum -a 256 openssl.xcframework.zip | cut -d ' ' -f1)
-          echo "framework_checksum=${FRAMEWORK_SHASUM}" >> $GITHUB_OUTPUT
-          echo "::notice ::openssl.xcframework.zip checksum: ${FRAMEWORK_SHASUM}"
-          BUILD_SHASUM=$(shasum -a 256 openssl.tar.xz | cut -d ' ' -f1)
-          echo "build_checksum=${BUILD_SHASUM}" >> $GITHUB_OUTPUT
-          echo "::notice ::openssl.tar.xz checksum: ${BUILD_SHASUM}"
           echo "-----BEGIN EC PRIVATE KEY-----" >> private_key.pem
           echo '${{ secrets.SIGNING_KEY }}' >> private_key.pem
           echo "-----END EC PRIVATE KEY-----" >> private_key.pem
           openssl dgst -sign private_key.pem -sha256 -out openssl.xcframework.zip.sig openssl.xcframework.zip
-          openssl dgst -sign private_key.pem -sha256 -out openssl.tar.xz.sig openssl.tar.xz
+          openssl dgst -sign private_key.pem -sha256 -out openssl_swift.xcframework.zip.sig openssl_swift.xcframework.zip
           rm -f private_key.pem
       - name: Make Release
-        id: release
-        run: |
-          echo '**Checksums:**' > release.md
-          echo '|File Name|SHA-256 Checksum|' >> release.md
-          echo '|-|-|' >> release.md
-          echo '|`openssl.xcframework.zip`|`${{ steps.prepare.outputs.framework_checksum }}`|' >> release.md
-          echo '|`openssl.tar.xz`|`${{ steps.prepare.outputs.build_checksum }}`|' >> release.md
-          gh release create --notes-file release.md -t "${{ needs.query.outputs.openssl_version }}" ${{ needs.query.outputs.openssl_version }} openssl.xcframework.zip openssl.xcframework.zip.sig openssl.tar.xz openssl.tar.xz.sig
+        id: make_release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create -n "${{ needs.query.outputs.openssl_version }}" -t "${{ needs.query.outputs.openssl_version }}" ${{ needs.query.outputs.openssl_version }} openssl.xcframework.zip openssl.xcframework.zip.sig openssl_swift.xcframework.zip openssl_swift.xcframework.zip.sig
