@@ -64,7 +64,7 @@ fi
 if [[ $VERIFY == 1 ]]; then
     echo "Verifying signature for ${ARCHIVE}"
     if [ ! -f "${ARCHIVE}.asc" ]; then
-        curl -A "${USERAGENT}" "https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz.asc" > "${ARCHIVE}.asc"
+        curl -A "${USERAGENT}" -L "https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz.asc" > "${ARCHIVE}.asc"
     fi
     gpg --verify "${ARCHIVE}.asc" "${ARCHIVE}" >/dev/null
     echo "Verified signature for ${ARCHIVE} successfully!"
