@@ -111,9 +111,6 @@ function build() {
     make -j $(sysctl -n hw.logicalcpu_max) >> "${LOG}" 2>&1
     make install >> "${LOG}" 2>&1
 
-    # Deprecated file (openssl should just remove it)
-    rm artifacts/include/openssl/asn1_mac.h
-
     cd ../
 }
 
