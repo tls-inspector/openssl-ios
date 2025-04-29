@@ -75,10 +75,12 @@ jobs:
           echo "-----END EC PRIVATE KEY-----" >> private_key.pem
           openssl dgst -sign private_key.pem -sha256 -out openssl.xcframework.zip.sig openssl.xcframework.zip
           openssl dgst -sign private_key.pem -sha256 -out openssl_swift.xcframework.zip.sig openssl_swift.xcframework.zip
+          openssl dgst -sign private_key.pem -sha256 -out openssl_swift.xcframework.zip.sig openssl_swift.xcframework.zip
+          openssl dgst -sign private_key.pem -sha256 -out openssl.tar.xz.sig openssl.tar.xz
           rm -f private_key.pem
       - name: Make Release
         id: make_release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create -n "${{ needs.query.outputs.openssl_version }}" -t "${{ needs.query.outputs.openssl_version }}" ${{ needs.query.outputs.openssl_version }} openssl.xcframework.zip openssl.xcframework.zip.sig openssl_swift.xcframework.zip openssl_swift.xcframework.zip.sig
+          gh release create -n "${{ needs.query.outputs.openssl_version }}" -t "${{ needs.query.outputs.openssl_version }}" ${{ needs.query.outputs.openssl_version }} openssl.xcframework.zip openssl.xcframework.zip.sig openssl_swift.xcframework.zip openssl_swift.xcframework.zip.sig openssl.tar.xz openssl.tar.xz.sig

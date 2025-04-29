@@ -1,6 +1,7 @@
 .DS_Store
 build/
 *.xcframework/
+*.tar
 *.tar.gz
 *.tar.gz.asc
 *.tar.xz

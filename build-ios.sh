@@ -97,7 +97,7 @@ function build() {
     export CFLAGS="-arch ${ARCH} -pipe -Os -gdwarf-2 -isysroot ${SDKDIR} -m${SDK}-version-min=12.0"
     export LDFLAGS="-arch ${ARCH} -isysroot ${SDKDIR}"
 
-    CONFIGURE_ARGS="${BUILD_ARGS} -no-shared -no-ui-console -no-tests -no-stdio -no-threads -no-legacy -no-ssl2 -no-ssl3 -no-asm -no-weak-ssl-ciphers"
+    CONFIGURE_ARGS="${BUILD_ARGS} -no-shared -no-ui-console -no-tests -no-legacy -no-ssl2 -no-ssl3 -no-asm -no-weak-ssl-ciphers"
 
     echo "build variables: CC=\"${CC}\" CFLAGS=\"${CFLAGS}\" LDFLAGS=\"${LDFLAGS}\"" >> "${LOG}"
     echo "configure parameters: ${CONFIGURE_ARGS}" >> "${LOG}"
@@ -172,3 +172,7 @@ xcodebuild -create-xcframework \
     -framework ${BUILDDIR}/iphonesimulator/openssl.framework \
     -output openssl.xcframework
 plutil -insert CFBundleVersion -string ${OPENSSL_VERSION} openssl.xcframework/Info.plist
+
+rm -f openssl.tar openssl.tar.xz
+tar -cf openssl.tar build/openssl_*/artifacts/
+xz openssl.tar

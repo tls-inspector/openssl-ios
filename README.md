@@ -49,7 +49,7 @@ Options are:
 -- build args
    Any arguments after -- are passed directly to the ./configure step of compiling curl. Regardless
    of this value these parameters are always provided:
-   -no-shared -no-ui-console -no-tests -no-stdio -no-threads -no-legacy -no-ssl2 -no-ssl3 -no-asm -no-weak-ssl-ciphers
+   -no-shared -no-ui-console -no-tests -no-legacy -no-ssl2 -no-ssl3 -no-asm -no-weak-ssl-ciphers
 ```
 
 ## Export Compliance
